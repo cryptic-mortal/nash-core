@@ -2,7 +2,9 @@
 
 constexpr uint8_t MAX_RAISES_PER_ROUND = 4;
 
-Leduc::GameState step(Leduc::GameState state, Leduc::Action action) {
+namespace Leduc {
+
+GameState step(GameState state, Action action) {
 
     uint8_t active_player = state.current_player;
     uint8_t opponent = active_player ^ 1;
@@ -47,4 +49,6 @@ Leduc::GameState step(Leduc::GameState state, Leduc::Action action) {
     }
 
     return state;
+}
+
 }
