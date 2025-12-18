@@ -32,6 +32,8 @@ namespace Leduc {
         uint8_t raises_this_round;
         bool is_terminal;
     };
+
+    GameState step(GameState state, Action action);
 };
 
 #endif
