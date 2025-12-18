@@ -3,6 +3,9 @@
 #define GAME_DEF_HPP
 
 namespace Leduc {
+
+    constexpr uint8_t MAX_RAISES_PER_ROUND = 4;
+
     constexpr uint8_t JACK = 0;
     constexpr uint8_t QUEEN = 1;
     constexpr uint8_t KING = 2;

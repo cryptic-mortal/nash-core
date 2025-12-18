@@ -4,20 +4,7 @@
 #include "rng.hpp"
 #include "dealer.hpp"
 #include "evaluator.hpp"
-
-Leduc::Action get_random_move(const Leduc::GameState& state, RNG& rng){
-    uint8_t num_choices = (state.raises_this_round < 4) ? 3 : 2;
-    uint8_t choice_idx = rng.next_int(num_choices);
-    Leduc::Action action;
-    if(choice_idx == 0){
-        action = Leduc::Action::FOLD;
-    }else if (choice_idx == 1){
-        action = Leduc::Action::CHECK_CALL;
-    }else{
-        action = Leduc::Action::BET_RAISE;
-    }
-    return action;
-}
+#include "game_utils.hpp"
 
 int main(){
     RNG rng(100);
@@ -38,4 +25,5 @@ int main(){
     double speed = NUM_GAMES / seconds;
     std::cout << "Time:  " << seconds << " seconds\n";
     std::cout << "Speed: " << (speed / 1000000.0) << " Million games/sec\n";
+    return 0;
 }

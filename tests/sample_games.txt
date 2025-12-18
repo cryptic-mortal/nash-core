@@ -1,0 +1,61 @@
+--------------------- GEOMETRIC LEDUC ENGINE TRACE ---------------------
+GAME  | POT        | P1 CHIPS   | P2 CHIPS   | ACTION LOG
+------------------------------------------------------------------------------------------------
+G1    |    3.0     |    1.0     |    2.0     | [DEAL] P1:Jh P2:Ks Pub:Qh
+      |            |            |            | > P1 CHECK/CALL
+      |    4.0     |    2.0     |    2.0     |   (BetSz:1 Round:0)
+      |            |            |            | > P2 CHECK/CALL
+      |    4.0     |    0.0     |    0.0     |   (BetSz:2 Round:1)
+      |            |            |            | > P1 FOLD 
+      |    4.0     |    0.0     |    0.0     |   (BetSz:2 Round:1)
+------+------------+------------+------------+----------------------
+RESULT| P1: -4.0   |            |            | Winner: P2
+
+G2    |    3.0     |    1.0     |    2.0     | [DEAL] P1:Js P2:Jh Pub:Kh
+      |            |            |            | > P1 BET/RAISE
+      |    5.0     |    3.0     |    2.0     |   (BetSz:2 Round:0)
+      |            |            |            | > P2 BET/RAISE
+      |    8.0     |    3.0     |    5.0     |   (BetSz:4 Round:0)
+      |            |            |            | > P1 FOLD 
+      |    8.0     |    3.0     |    5.0     |   (BetSz:4 Round:0)
+------+------------+------------+------------+----------------------
+RESULT| P1: -8.0   |            |            | Winner: P2
+
+G3    |    3.0     |    1.0     |    2.0     | [DEAL] P1:Jh P2:Qh Pub:Qs
+      |            |            |            | > P1 BET/RAISE
+      |    5.0     |    3.0     |    2.0     |   (BetSz:2 Round:0)
+      |            |            |            | > P2 CHECK/CALL
+      |    6.0     |    0.0     |    0.0     |   (BetSz:2 Round:1)
+      |            |            |            | > P1 BET/RAISE
+      |    8.0     |    2.0     |    0.0     |   (BetSz:4 Round:1)
+      |            |            |            | > P2 FOLD 
+      |    8.0     |    2.0     |    0.0     |   (BetSz:4 Round:1)
+------+------------+------------+------------+----------------------
+RESULT| P1: +8.0   |            |            | Winner: P1
+
+G4    |    3.0     |    1.0     |    2.0     | [DEAL] P1:Qh P2:Qs Pub:Ks
+      |            |            |            | > P1 BET/RAISE
+      |    5.0     |    3.0     |    2.0     |   (BetSz:2 Round:0)
+      |            |            |            | > P2 CHECK/CALL
+      |    6.0     |    0.0     |    0.0     |   (BetSz:2 Round:1)
+      |            |            |            | > P1 BET/RAISE
+      |    8.0     |    2.0     |    0.0     |   (BetSz:4 Round:1)
+      |            |            |            | > P2 CHECK/CALL
+      |   10.0     |    2.0     |    2.0     |   (BetSz:4 Round:1)
+------+------------+------------+------------+----------------------
+RESULT| P1: +0.0   |            |            | Winner: Tie
+
+G5    |    3.0     |    1.0     |    2.0     | [DEAL] P1:Js P2:Qs Pub:Kh
+      |            |            |            | > P1 CHECK/CALL
+      |    4.0     |    2.0     |    2.0     |   (BetSz:1 Round:0)
+      |            |            |            | > P2 BET/RAISE
+      |    5.0     |    2.0     |    3.0     |   (BetSz:2 Round:0)
+      |            |            |            | > P1 BET/RAISE
+      |    8.0     |    5.0     |    3.0     |   (BetSz:4 Round:0)
+      |            |            |            | > P2 CHECK/CALL
+      |   10.0     |    0.0     |    0.0     |   (BetSz:2 Round:1)
+      |            |            |            | > P1 FOLD 
+      |   10.0     |    0.0     |    0.0     |   (BetSz:2 Round:1)
+------+------------+------------+------------+----------------------
+RESULT| P1: -10.0   |            |            | Winner: P2
+
