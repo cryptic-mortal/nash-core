@@ -40,9 +40,14 @@ int main() {
             state = Leduc::step(state, action);
             printf("\n      | %6.1f     | %6.1f     | %6.1f     |   (BetSz:%.0f Round:%d)\n",state.pot, state.committed[0], state.committed[1], state.current_bet_size, state.round);
         }
-        float payoff = get_payoff(state);
+        std::pair<float, float> results = Leduc::get_payoff(state);
+        float p1_profit = results.first;
+        float p2_profit = results.second;
         printf("------+------------+------------+------------+----------------------\n");
-        printf("RESULT| P1: %+.1f   |            |            | Winner: %s\n", payoff, (payoff > 0 ? "P1" : (payoff < 0 ? "P2" : "Tie")));
+        printf("RESULT| P1: %+.1f | P2: %+.1f | Winner: %s\n", 
+            p1_profit, 
+            p2_profit, 
+            (p1_profit > 0 ? "P1" : (p1_profit < 0 ? "P2" : "Tie")));
         printf("\n");
     }
     return 0;

@@ -17,7 +17,10 @@ int main(){
             Leduc::Action action = get_random_move(state, rng);
             state = Leduc::step(state, action);
         }
-        total_payoff += Leduc::get_payoff(state);
+        std::pair<float, float> result = Leduc::get_payoff(state);
+
+        std::cout << "P1 Payoff: " << result.first << "\n";
+        std::cout << "P2 Payoff: " << result.second << "\n";
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
