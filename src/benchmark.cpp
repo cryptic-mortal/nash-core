@@ -19,8 +19,8 @@ int main(){
         }
         std::pair<float, float> result = Leduc::get_payoff(state);
 
-        std::cout << "P1 Payoff: " << result.first << "\n";
-        std::cout << "P2 Payoff: " << result.second << "\n";
+        // std::cout << "P1 Payoff: " << result.first << "\n";
+        // std::cout << "P2 Payoff: " << result.second << "\n";
     }
     auto end_time = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end_time - start_time;
