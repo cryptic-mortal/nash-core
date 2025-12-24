@@ -1,2 +1,3 @@
 Time:  0.444433 seconds
 Speed: 22.5006 Million games/sec
+Total INFO SETS: 2409
