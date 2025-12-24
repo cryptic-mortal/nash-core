@@ -86,15 +86,22 @@ void print_strategy(const Leduc::CFRMap& unordered_map) {
 int main(){
     RNG rng(100);
     int ITERATIONS = 100000;
-
+    double total_val = 0.0;
+    std::vector<double> evs;
     std::cout << "Started CFR Training (" << ITERATIONS <<" games)..." << std :: endl;
     for(int i = 0; i < ITERATIONS; i++){
         Leduc::GameState state = Leduc::deal_initial_state(rng);
-        cfr(state, 1.0f, 1.0f);
-        if(i%10000 == 0) std::cout << "." << std::flush;
+        total_val += cfr(state, 1.0f, 1.0f);
+        if(i%10000 == 0) {
+            std::cout << "." << std::flush;
+            evs.push_back(total_val/(i+1));
+        }
     }
     std::cout << "\nTraining Complete. Learned " << regret_map.size() << " info sets." << std::endl;
-
+    // The values should converge approx to 0.0 which means that no player has any unfair advantage
+    for(auto i : evs) {
+        std::cout<<"Avg. EV (P1): "<<i<<"\n";
+    }
     print_strategy(regret_map);
     return 0;
 }
