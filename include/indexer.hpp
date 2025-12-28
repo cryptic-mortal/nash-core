@@ -37,16 +37,20 @@ class Indexer {
     public:
     Indexer() {
         RNG rng(100);
-        Leduc::GameState state = Leduc::deal_initial_state(rng);
-        state.p1_card = Leduc::JACK*2;
-        state.p2_card = Leduc::JACK*2;
-        walk(state);
-        state.p1_card = Leduc::KING*2;
-        state.p2_card = Leduc::KING*2;
-        walk(state);
-        state.p1_card = Leduc::QUEEN*2;
-        state.p2_card = Leduc::QUEEN*2;
-        walk(state);
+        for(int r1 = 0; r1 < 3; r1++){
+            for(int r2 = 0; r2 < 3; r2++){
+                Leduc::GameState state = Leduc::deal_initial_state(rng);
+
+                state.p1_card = r1*2;
+                state.p2_card = (r1 == r2) ? (r2*2 + 1) : (r2*2);
+
+                state.round = 0;
+                state.raises_this_round = 0;
+                state.history_len = 0;
+
+                walk(state);
+            }
+        }
         for(auto key : sorted_key) {
             id_to_key.push_back(key);
             key_to_id[key] = id_to_key.size()-1;
