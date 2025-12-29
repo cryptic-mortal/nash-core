@@ -1,6 +1,9 @@
 Indexer Initialized. Flattened 2409 sets into vectors of size 7227
+
 Started CFR Training (100000 games)...
-..........
+..........Time:  1.14528 seconds
+Speed: 87314.7 games/sec
+
 Training Complete.
 Avg. EV (P1): -0.527485
 Avg. EV (P1): -0.0374673
