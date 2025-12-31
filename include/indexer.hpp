@@ -16,9 +16,9 @@ class Indexer {
     std::vector<std::string> id_to_key;
     std::set<std::string> sorted_key;
     void walk(Leduc::GameState state) {
+        if(state.is_terminal) return;
         std::string info = Leduc::get_info_set_key(state);
         sorted_key.insert(info); 
-        if(state.is_terminal) return;
         for(int i = 0;i<3;i++) {
             Leduc::Action act = static_cast<Leduc::Action>(i);
             if(act==Leduc::Action::BET_RAISE && state.raises_this_round>=4) continue;
