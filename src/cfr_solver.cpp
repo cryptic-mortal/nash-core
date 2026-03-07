@@ -129,41 +129,25 @@ void print_strategy() {
 }
 int main(){
     RNG rng(100);
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     int num_info_sets = global_indexer.get_size();
     global_regret_sum.resize(num_info_sets*3, 0.0f);
     global_strategy_sum.resize(num_info_sets*3, 0.0f);
 
-    // std::cout << "Indexer Initialized. Flattened " << num_info_sets 
-    //           << " sets into vectors of size " << global_regret_sum.size() << std::endl;
-    // int ITERATIONS = 100000;
-    // double total_val = 0.0;
-    // std::vector<double> evs;
-    // std::cout << "Started CFR Training (" << ITERATIONS <<" games)..." << std :: endl;
-    // for(int i = 0; i < ITERATIONS; i++){
-    //     Leduc::GameState state = Leduc::deal_initial_state(rng);
-    //     total_val += cfr(state, 1.0f, 1.0f, rng);
-    //     if(i%10000 == 0) {
-    //         std::cout << "." << std::flush;
-    //         evs.push_back(total_val/(i+1));
-    //     }
-    // }
-    // std::cout << "\nTraining Complete." << std::endl;
-    // // The values should converge approx to 0.0 which means that no player has any unfair advantage
-    // for(auto i : evs) {
-    //     std::cout<<"Avg. EV (P1): "<<i<<"\n";
-    // }
-    // print_strategy();
-    // return 0;
+    std::cout << "Indexer Initialized. Flattened " << num_info_sets 
+              << " sets into vectors of size " << global_regret_sum.size() << std::endl;
+    std::cout<<std::endl;
 
-    std::cout << "Building Static Game Trees in the RAM...." << std::endl;
+    std::cout << "Building Static Game Trees in RAM..." << std::endl;
+    // Build the 9 possible starting configurations
     for(int r1 = 0; r1 < 3; r1++) {
         for(int r2 = 0; r2 < 3; r2++) {
-            Leduc::GameState root_state = Leduc::deal_initial_state(rng);
-
+            
+            Leduc::GameState root_state = Leduc::deal_initial_state(rng); 
+            
             root_state.p1_card = r1 * 2;
             root_state.p2_card = (r1 == r2) ? (r2 * 2 + 1) : (r2 * 2);
-
             root_state.is_terminal = false;
             root_state.round = 0;
             root_state.current_player = 0;
@@ -173,7 +157,6 @@ int main(){
             game_tree_roots[r1][r2] = build_tree(root_state, global_indexer);
         }
     }
-
     int ITERATIONS = 100000;
     double total_val = 0.0;
     std::vector<double> evs;
@@ -191,7 +174,12 @@ int main(){
             evs.push_back(total_val/(i+1));
         }
     }
-    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end_time - start_time;
+    double seconds = elapsed.count();
+    double speed = ITERATIONS / seconds;
+    std::cout << "Time:  " << seconds << " seconds\n";
+    std::cout << "Speed: " << (speed) << " games/sec\n";
     std::cout << "\nTraining Complete." << std::endl;
     print_strategy();
     return 0;
