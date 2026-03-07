@@ -26,7 +26,7 @@ namespace Leduc {
 
     using CFRMap = std::unordered_map<std::string,CFRNode>;
 
-    std::string get_info_set_key(const Leduc::GameState& state) {
+    inline std::string get_info_set_key(const Leduc::GameState& state) {
         std::string s = "";
         
         uint8_t rank;

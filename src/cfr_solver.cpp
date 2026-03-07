@@ -8,17 +8,22 @@
 #include "info_set.hpp"
 #include "indexer.hpp"
 #include "rng.hpp"
+#include "game_tree.hpp"
 
 std::vector<float> global_regret_sum;
 std::vector<float> global_strategy_sum;
 Leduc::Indexer global_indexer;
 
-std::vector<float> get_current_strategy(int id){
+Node* game_tree_roots[3][3];
+extern Node* build_tree(Leduc::GameState state, Leduc::Indexer& indexer);
+
+std::vector<float> get_current_strategy(Node* node){
     std::vector<float> strategy(3,0.0f);
     float sum = 0.0f;
-    int offset = id*3;
+    int offset = node->info_set_id*3;
 
     for(int a = 0; a < 3; a++){
+        if(node->action_children[a] == nullptr) continue;
         float r = global_regret_sum[offset + a];
         strategy[a] = (r > 0) ? r : 0.0f;
         sum += strategy[a];
@@ -26,73 +31,48 @@ std::vector<float> get_current_strategy(int id){
 
     if(sum > 0){
         for(int a = 0; a < 3; a++){
-            strategy[a]/=sum;
+            if(node->action_children[a]!=nullptr) strategy[a]/=sum;   
         }
     }else{
-        for(int a = 0; a < 3; a++){
-            strategy[a] = 1.0f/3.0f;
+        int valid_count = 0;
+        for(int a = 0; a < 3; a++) {
+            if (node->action_children[a] != nullptr) valid_count++;
+        }
+        for(int a = 0; a < 3; a++) {
+            if (node->action_children[a] != nullptr) strategy[a] = 1.0f / valid_count;
         }
     }
     return strategy;
 }
 
-float cfr(Leduc::GameState state, float p0, float p1, RNG& rng){
-    if(state.is_terminal){
-        std::pair<float,float> payoff = Leduc::get_payoff(state);
-        return payoff.first;
-    }
-    uint8_t player = state.current_player;
-    std::string key = Leduc::get_info_set_key(state);
-    int id = global_indexer.get_id(key);
+float cfr(Node* node, float p0, float p1, RNG& rng){
 
-    if(id == -1){
-        std::cerr << "Error : Unknown State " << key << std::endl;
-        return 0.0f;
-    }
+    if(node->is_terminal) return node->payoff;
 
-    std::vector<float> strategy = get_current_strategy(id);
+    if(node->is_chance) {
+        int num_choices= node->chance_children.size();
+        int rand_idx = rng.next_int(num_choices);
+        return cfr(node->chance_children[rand_idx],p0,p1,rng);
+    }
+    uint8_t player = node->player;
+    int id = node->info_set_id;
+
+    std::vector<float> strategy = get_current_strategy(node);
 
     float action_utils[3] = {0.0f};
-    bool is_valid[3] = {false};
 
     for(int action = 0; action<3; action++){
-        Leduc::Action act = static_cast<Leduc::Action>(action);
-        if(act == Leduc::Action::BET_RAISE && state.raises_this_round>=4) {
-            is_valid[action] = false;
-            continue;
-        }
-        is_valid[action] = true;
-        
-        Leduc::GameState next_state = Leduc::step(state,act);
 
-        if (state.round != next_state.round) {
-            int valid_card = -1;
-            
-            for(int k=0; k<20; k++) {
-                int r = rng.next_int(6);
-                if(r != state.p1_card && r != state.p2_card) {
-                    valid_card = r;
-                    break;
-                }
-            }
-            if(valid_card == -1) {
-                 for(int c=0; c<6; c++) {
-                     if(c != state.p1_card && c != state.p2_card) {
-                         valid_card = c;
-                         break;
-                     }
-                 }
-            }
+        Node* child = node->action_children[action];
+        if(child == nullptr) continue;
 
-            next_state.public_card = valid_card;
-        }
-        if(player == 0) action_utils[action] = cfr(next_state, p0*strategy[action], p1, rng);
-        else action_utils[action] = cfr(next_state, p0, p1*strategy[action], rng);
+        if(player == 0) action_utils[action] = cfr(child,p0*strategy[action],p1,rng);
+        else action_utils[action] = cfr(child,p0,p1*strategy[action],rng);
     }
 
     float node_util = 0.0f;
     for(int i = 0; i < 3; i++){
-        if(is_valid[i]) {
+        if(node->action_children[i]!=nullptr){
             node_util += strategy[i]*action_utils[i];
         }
     }
@@ -101,7 +81,7 @@ float cfr(Leduc::GameState state, float p0, float p1, RNG& rng){
     int offset = id*3;
     
     for(int i = 0; i<3; i++){
-        if(!is_valid[i]) continue;
+        if(node->action_children[i] == nullptr) continue;
 
         float my_action_val = (player == 0) ? action_utils[i] : -action_utils[i];
         float my_node_val = (player == 0) ? node_util : -node_util;
@@ -117,9 +97,9 @@ void print_strategy() {
 
     std::cout << "\n=== LEARNED STRATEGY (Vector Based) ===\n";
     std::cout << std::left << std::setw(25) << "Info Set (Card:Hist)" 
-              << std::setw(15) << "Fold/Check" 
-              << std::setw(15) << "Call" 
-              << std::setw(15) << "Raise" << std::endl;
+              << std::setw(15) << "Fold" 
+              << std::setw(15) << "Call/Check" 
+              << std::setw(15) << "Bet/Raise" << std::endl;
     std::cout << "----------------------------------------------------------------------" << std::endl;
     
     int num_sets = global_indexer.get_size();
@@ -158,14 +138,38 @@ int main(){
     std::cout << "Indexer Initialized. Flattened " << num_info_sets 
               << " sets into vectors of size " << global_regret_sum.size() << std::endl;
     std::cout<<std::endl;
+
+    std::cout << "Building Static Game Trees in RAM..." << std::endl;
+    // Build the 9 possible starting configurations
+    for(int r1 = 0; r1 < 3; r1++) {
+        for(int r2 = 0; r2 < 3; r2++) {
+            
+            Leduc::GameState root_state = Leduc::deal_initial_state(rng); 
+            
+            root_state.p1_card = r1 * 2;
+            root_state.p2_card = (r1 == r2) ? (r2 * 2 + 1) : (r2 * 2);
+            root_state.is_terminal = false;
+            root_state.round = 0;
+            root_state.current_player = 0;
+            root_state.raises_this_round = 0;
+            root_state.history_len = 0;
+            
+            game_tree_roots[r1][r2] = build_tree(root_state, global_indexer);
+        }
+    }
     int ITERATIONS = 100000;
     double total_val = 0.0;
     std::vector<double> evs;
-    std::cout << "Started CFR Training (" << ITERATIONS <<" games)..." << std :: endl;
+    std::cout << "Started Fast CFR Training (" << ITERATIONS <<" games)..." << std :: endl;
+    
     for(int i = 0; i < ITERATIONS; i++){
         Leduc::GameState state = Leduc::deal_initial_state(rng);
-        total_val += cfr(state, 1.0f, 1.0f, rng);
-        if(i%10000 == 0) {
+        int r1 = state.p1_card / 2;
+        int r2 = state.p2_card / 2;
+        
+        total_val += cfr(game_tree_roots[r1][r2], 1.0f, 1.0f, rng);
+        
+        if(i % 10000 == 0) {
             std::cout << "." << std::flush;
             evs.push_back(total_val/(i+1));
         }
@@ -177,10 +181,6 @@ int main(){
     std::cout << "Time:  " << seconds << " seconds\n";
     std::cout << "Speed: " << (speed) << " games/sec\n";
     std::cout << "\nTraining Complete." << std::endl;
-    // The values should converge approx to 0.0 which means that no player has any unfair advantage
-    for(auto i : evs) {
-        std::cout<<"Avg. EV (P1): "<<i<<"\n";
-    }
     print_strategy();
     return 0;
 }
