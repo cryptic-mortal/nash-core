@@ -194,78 +194,199 @@ void measure_convergence() {
     }
 }
 
-float best_response(Node* node, int br_player, float opp_reach){
-    if(node -> is_terminal){
-        return (br_player == 0) ? (node->payoff * opp_reach) : (-node->payoff * opp_reach);
+float exploit_traverse(Node* node, int traversing_player, RNG& rng, int frozen_player, std::vector<double>& exp_regret, double weight, float my_reach) {
+    
+    if (node->is_terminal) {
+        return (traversing_player == 0) ? node->payoff : -node->payoff;
     }
 
-    if(node -> is_chance){
-        float expected_val = 0.0f;
-        int num_choices = node->chance_children.size();
-        for(int i = 0; i<num_choices; i++){
-            expected_val += best_response(node->chance_children[i], br_player, opp_reach * (1.0f/num_choices));
-        }
-        return expected_val;
+    if (node->is_chance) {
+        int rand_idx = rng.next_int(node->chance_children.size());
+        return exploit_traverse(node->chance_children[rand_idx], traversing_player, rng, frozen_player, exp_regret, weight, my_reach);
     }
 
-    if(node->player == br_player){
-        float max_val = -1e9;
-        for(int a = 0; a<3; a++){
-            if(node->action_children[a]!=nullptr){
-                float val = best_response(node->action_children[a], br_player, opp_reach);
-                if(val > max_val) max_val = val;
-            }
-        }
-        return max_val;
-    }else{
-        int offset = node->info_set_id*3;
+    uint8_t player = node->player;
+    int offset = node->info_set_id * 3;
+    std::vector<float> strategy(3, 0.0f);
+    
+    if (player == frozen_player) {
         float sum = 0.0f;
-        for(int a = 0; a<3; a++){
-            if(node->action_children[a]!=nullptr){
-                sum += std::atomic_ref<double>(global_strategy_sum[offset+a]).load(std::memory_order_relaxed);
+        for(int a = 0; a < 3; a++){
+            if(node->action_children[a]) {
+                strategy[a] = std::atomic_ref<double>(global_strategy_sum[offset+a]).load(std::memory_order_relaxed);
+                sum += strategy[a];
             }
+        }
+        if (sum > 0) {
+            for(int a = 0; a < 3; a++) if(node->action_children[a]) strategy[a] /= sum;
+        } else {
+            int valid = 0;
+            for(int a = 0; a < 3; a++) if(node->action_children[a]) valid++;
+            for(int a = 0; a < 3; a++) if(node->action_children[a]) strategy[a] = 1.0f / valid;
+        }
+    } else {
+        float sum = 0.0f;
+        for(int a = 0; a < 3; a++){
+            if(node->action_children[a]) {
+                double r = exp_regret[offset+a];
+                strategy[a] = (r > 0) ? r : 0.0f;
+                sum += strategy[a];
+            }
+        }
+        if (sum > 0) {
+            for(int a = 0; a < 3; a++) if(node->action_children[a]) strategy[a] /= sum;
+        } else {
+            int valid = 0;
+            for(int a = 0; a < 3; a++) if(node->action_children[a]) valid++;
+            for(int a = 0; a < 3; a++) if(node->action_children[a]) strategy[a] = 1.0f / valid;
+        }
+    }
+
+    if (player == traversing_player) {
+        float action_utils[3] = {0.0f};
+        float node_util = 0.0f;
+        
+        for(int action = 0; action < 3; action++){
+            if(node->action_children[action] == nullptr) continue;
+            action_utils[action] = exploit_traverse(node->action_children[action], traversing_player, rng, frozen_player, exp_regret, weight, my_reach * strategy[action]);
+            node_util += strategy[action] * action_utils[action];
         }
 
-        float expected_val = 0.0f;
-        for(int a = 0; a<3; a++){
-            if(node->action_children[a]!=nullptr){
-                float prob = 0.0f;
-                if(sum > 0){
-                    prob = std::atomic_ref<double>(global_strategy_sum[offset+a]).load(std::memory_order_relaxed)/sum;
-                }else{
-                    int valid = 0;
-                    for(int b = 0; b<3; b++){
-                        if(node->action_children[b]){
-                            valid++;
-                        }
-                    }
-                    prob = 1.0f/valid;
-                }
-                expected_val += best_response(node->action_children[a], br_player, opp_reach * prob);
+        if (player != frozen_player) {
+            for(int a = 0; a < 3; a++){
+                if(node->action_children[a] == nullptr) continue;
+                exp_regret[offset+a] += (action_utils[a] - node_util);
             }
         }
-        return expected_val;
+        return node_util;
+        
+    } else {
+        float r = rng.next_float();
+        float cum_prob = 0.0f;
+        int sampled_action = -1;
+
+        for(int a = 0; a < 3; a++){
+            if(node->action_children[a] == nullptr) continue;
+            cum_prob += strategy[a];
+            if(r <= cum_prob){
+                sampled_action = a;
+                break;
+            }
+        }
+        if(sampled_action == -1){
+            for(int a = 0; a < 3; a++) if(node->action_children[a]) { sampled_action = a; break; }
+        }
+        return exploit_traverse(node->action_children[sampled_action], traversing_player, rng, frozen_player, exp_regret, weight, my_reach);
     }
+}
+
+double run_frozen_cfr_for_player(int frozen_player) {
+    int num_sets = global_indexer.get_size();
+    std::vector<double> exp_regret(num_sets * 3, 0.0);
+    
+    int exploiter = 1 - frozen_player;
+    int num_iterations = 1000000;
+    double total_ev = 0.0;
+    
+    RNG rng(42 + frozen_player);
+    
+    for (int i = 0; i < num_iterations; i++) {
+        Leduc::GameState state = Leduc::deal_initial_state(rng);
+        int r1 = state.p1_card / 2;
+        int r2 = state.p2_card / 2;
+        
+        double weight = (double)(i + 1);
+        
+        double ev = exploit_traverse(game_tree_roots[r1][r2], exploiter, rng, frozen_player, exp_regret, weight, 1.0f);
+        
+        if (i >= num_iterations / 2) {
+            total_ev += ev;
+        }
+    }
+    
+    return total_ev / (num_iterations / 2.0);
 }
 
 float calc_exploitability() {
-    float br_value_0 = 0.0f;
-    float br_value_1 = 0.0f;
-
-    for(int r1 = 0; r1 < 3; r1++){
-        for(int r2 = 0; r2 < 3; r2++){
-            float prob = (r1 == r2) ? (1.0f / 15.0f) : (2.0f/15.0f);
-
-            br_value_0 += prob * best_response(game_tree_roots[r1][r2], 0, 1.0f);
-            br_value_1 += prob * best_response(game_tree_roots[r1][r2], 1, 1.0f);
-        }
-    }
-
-    return (br_value_0 + br_value_1)/2;
+    double p0_br_ev = run_frozen_cfr_for_player(1); 
+    
+    double p1_br_ev = run_frozen_cfr_for_player(0); 
+    
+    return (float)((p0_br_ev + p1_br_ev) / 2.0);
 }
 
+// float best_response(Node* node, int br_player, float opp_reach){
+//     if(node -> is_terminal){
+//         return (br_player == 0) ? (node->payoff * opp_reach) : (-node->payoff * opp_reach);
+//     }
+
+//     if(node -> is_chance){
+//         float expected_val = 0.0f;
+//         int num_choices = node->chance_children.size();
+//         for(int i = 0; i<num_choices; i++){
+//             expected_val += best_response(node->chance_children[i], br_player, opp_reach * (1.0f/num_choices));
+//         }
+//         return expected_val;
+//     }
+
+//     if(node->player == br_player){
+//         float max_val = -1e9;
+//         for(int a = 0; a<3; a++){
+//             if(node->action_children[a]!=nullptr){
+//                 float val = best_response(node->action_children[a], br_player, opp_reach);
+//                 if(val > max_val) max_val = val;
+//             }
+//         }
+//         return max_val;
+//     }else{
+//         int offset = node->info_set_id*3;
+//         float sum = 0.0f;
+//         for(int a = 0; a<3; a++){
+//             if(node->action_children[a]!=nullptr){
+//                 sum += std::atomic_ref<double>(global_strategy_sum[offset+a]).load(std::memory_order_relaxed);
+//             }
+//         }
+
+//         float expected_val = 0.0f;
+//         for(int a = 0; a<3; a++){
+//             if(node->action_children[a]!=nullptr){
+//                 float prob = 0.0f;
+//                 if(sum > 0){
+//                     prob = std::atomic_ref<double>(global_strategy_sum[offset+a]).load(std::memory_order_relaxed)/sum;
+//                 }else{
+//                     int valid = 0;
+//                     for(int b = 0; b<3; b++){
+//                         if(node->action_children[b]){
+//                             valid++;
+//                         }
+//                     }
+//                     prob = 1.0f/valid;
+//                 }
+//                 expected_val += best_response(node->action_children[a], br_player, opp_reach * prob);
+//             }
+//         }
+//         return expected_val;
+//     }
+// }
+
+// float calc_exploitability() {
+//     float br_value_0 = 0.0f;
+//     float br_value_1 = 0.0f;
+
+//     for(int r1 = 0; r1 < 3; r1++){
+//         for(int r2 = 0; r2 < 3; r2++){
+//             float prob = (r1 == r2) ? (1.0f / 15.0f) : (2.0f/15.0f);
+
+//             br_value_0 += prob * best_response(game_tree_roots[r1][r2], 0, 1.0f);
+//             br_value_1 += prob * best_response(game_tree_roots[r1][r2], 1, 1.0f);
+//         }
+//     }
+
+//     return (br_value_0 + br_value_1)/2;
+// }
+
 void log_exploitability_csv(int iterations, float exploitability){
-    std::ofstream file("exploitability_log.csv", std::ios::app);
+    std::ofstream file("tests/exploitability_log.csv", std::ios::app);
 
     file.seekp(0, std::ios::end);
     if(file.tellp() == 0){
@@ -289,8 +410,8 @@ void run_training(int total_iterations, int num_threads) {
     global_strategy_sum.assign(num_info_sets * 3, 0.0f);
 
     int iterations_per_thread = total_iterations / num_threads;
-    std::cout << "--------------------------------------------------------\n";
-    std::cout << "Training Iterations: " << total_iterations << " (" << iterations_per_thread << " per thread)\n";
+    // std::cout << "--------------------------------------------------------\n";
+    // std::cout << "Training Iterations: " << total_iterations << " (" << iterations_per_thread << " per thread)\n";
 
     std::vector<std::thread> threads;
     auto train_start = std::chrono::high_resolution_clock::now();
@@ -336,10 +457,10 @@ void run_training(int total_iterations, int num_threads) {
 
     log_exploitability_csv(total_iterations, exploitability);
     
-    std::cout << "Time: " << seconds << " seconds | Speed: " << (total_iterations / seconds) << " games/sec\n";
-    std::cout << "Exploitability: " << std::fixed << std::setprecision(5) << exploitability << " chips/game\n";
+    // std::cout << "Time: " << seconds << " seconds | Speed: " << (total_iterations / seconds) << " games/sec\n";
+    // std::cout << "Exploitability: " << std::fixed << std::setprecision(5) << exploitability << " chips/game\n";
 }
-int main(){
+int main_(){
     // for(int t = 0; t < num_threads; t++){
     //     for(size_t i = 0; i < global_strategy_sum.size(); i++){
     //         global_strategy_sum[i] += thread_strategies[t][i];
@@ -369,14 +490,15 @@ int main(){
     
     int num_threads = std::thread::hardware_concurrency();
     if(num_threads == 0) num_threads = 4;
-    std::cout << "Detected " << num_threads << " CPU Cores.\n";
+    // std::cout << "Detected " << num_threads << " CPU Cores.\n";
 
-    std::vector<int> checkpoints = {1000000, 5000000, 10000000, 100000000};
+    std::vector<int> checkpoints = {10000, 50000, 100000, 500000, 1000000, 5000000, 10000000};
     
     for (int iters : checkpoints) {
         run_training(iters, num_threads);
     }
 
+    print_strategy();
     std::cout << "\nAll convergence tests complete!" << std::endl;
     return 0;
 }
