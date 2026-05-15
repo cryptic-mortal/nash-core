@@ -1,0 +1,28 @@
+Initializing Indexer and Building Game Trees in RAM...
+Initialization Complete. Total Info Sets: 840
+Total Iterations: 10000000 Iterations
+Hardware: 8 CPU Cores Detected
+Locking: Lock-Free (std::memory_order_relaxed)
+--------------------------------------------------------------------------------
+Threads   Time (s)       Speedup S(N)   Effic. E(N)    Throughput (iters/s)
+--------------------------------------------------------------------------------
+1         5.266          1.00x           100.0%         1899066
+2         3.062          1.72x           86.0%         3266263
+4         2.353          2.24x           55.9%         4250098
+8         2.372          2.22x           27.8%         4216568
+================================================================================
+
+Initializing Indexer and Building Game Trees in RAM...
+Initialization Complete. Total Info Sets: 840
+Total Iterations: 50000000 Iterations
+Hardware: 8 CPU Cores Detected
+Locking: Lock-Free (std::memory_order_relaxed)
+--------------------------------------------------------------------------------
+Threads   Time (s)       Speedup S(N)   Effic. E(N)    Throughput (iters/s)
+--------------------------------------------------------------------------------
+1         26.606         1.00x           100.0%         1879296
+2         15.671         1.70x           84.9%         3190598
+4         7.852          3.39x           84.7%         6367569
+8         12.417         2.14x           26.8%         4026745
+================================================================================
+
