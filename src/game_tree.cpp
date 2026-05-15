@@ -41,10 +41,12 @@ Node* build_tree(Leduc::GameState state, Leduc::Indexer& indexer){
                 int used = 0;
                 if(state.p1_card/2 == rank) used++;
                 if(state.p2_card/2 == rank) used++;
-                if(used < 2){
+
+                int remaining_in_deck = 2 - used;
+                for(int c = 0; c < remaining_in_deck; c++){
                     Leduc::GameState chance_state = next_state;
-                    chance_state.public_card = (rank*2) + used;
-                    chance_node->chance_children.push_back(build_tree(chance_state,indexer));
+                    chance_state.public_card = rank * 2;
+                    chance_node->chance_children.push_back(build_tree(chance_state, indexer));
                 }
             }
             node->action_children[a] = chance_node;

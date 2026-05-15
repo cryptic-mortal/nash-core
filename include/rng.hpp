@@ -23,5 +23,9 @@ struct RNG{
     uint32_t next_int(uint32_t max){
         return next_random()%max;
     }
+
+    float next_float() {
+        return static_cast<float>(next_int(1000000))/1000000.0f;
+    }
 };
 #endif
