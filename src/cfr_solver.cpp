@@ -460,7 +460,7 @@ void run_training(int total_iterations, int num_threads) {
     // std::cout << "Time: " << seconds << " seconds | Speed: " << (total_iterations / seconds) << " games/sec\n";
     // std::cout << "Exploitability: " << std::fixed << std::setprecision(5) << exploitability << " chips/game\n";
 }
-int main_(){
+int main(){
     // for(int t = 0; t < num_threads; t++){
     //     for(size_t i = 0; i < global_strategy_sum.size(); i++){
     //         global_strategy_sum[i] += thread_strategies[t][i];
@@ -492,13 +492,28 @@ int main_(){
     if(num_threads == 0) num_threads = 4;
     // std::cout << "Detected " << num_threads << " CPU Cores.\n";
 
-    std::vector<int> checkpoints = {10000, 50000, 100000, 500000, 1000000, 5000000, 10000000};
+    std::vector<int> checkpoints = {10000, 50000, 100000};
     
     for (int iters : checkpoints) {
         run_training(iters, num_threads);
     }
 
     print_strategy();
+    
+    // Task: Strategy Export
+    auto save_strategy = [&](const std::string& filename) {
+        std::ofstream out(filename, std::ios::binary);
+        int num_sets = global_indexer.get_size();
+        out.write(reinterpret_cast<const char*>(&num_sets), sizeof(int));
+        for (int i = 0; i < num_sets * 3; i++) {
+            double val = std::atomic_ref<double>(global_strategy_sum[i]).load(std::memory_order_relaxed);
+            out.write(reinterpret_cast<const char*>(&val), sizeof(double));
+        }
+        out.close();
+        std::cout << "Strategy saved to " << filename << std::endl;
+    };
+    save_strategy("strategy.dat");
+
     std::cout << "\nAll convergence tests complete!" << std::endl;
     return 0;
 }
